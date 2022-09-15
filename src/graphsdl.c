@@ -3457,10 +3457,9 @@ void emulate_plot(int32 code, int32 x, int32 y) {
       }
       fprintf(stderr,"xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
 
-      //draw_arc(screenbank[ds.writebank], tx, ty, xradius, yradius, start_dx,start_dy,end_dx,end_dy, colour, action);    
-      plot_pixel(screenbank[ds.writebank], tx, ty, colour, action);
-      plot_pixel(screenbank[ds.writebank], tx+start_dx, ty-start_dy, colour, action);
-      //plot_pixel(screenbank[ds.writebank], tx+end_dx, ty-end_dy, colour, action);
+      draw_arc(screenbank[ds.writebank], tx, ty, xradius, yradius, start_dx,start_dy,end_dx,end_dy, colour, action);    
+      //plot_pixel(screenbank[ds.writebank], tx, ty, colour, action);
+      //plot_pixel(screenbank[ds.writebank], tx+start_dx, ty-start_dy, colour, action);
       hide_cursor();
       blit_scaled(0,0,ds.vscrwidth,ds.vscrheight);
       reveal_cursor();

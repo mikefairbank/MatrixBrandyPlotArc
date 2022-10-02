@@ -3423,19 +3423,26 @@ void emulate_plot(int32 code, int32 x, int32 y) {
 */
     tx = GXTOPX(ds.xlast3);
     ty = GYTOPY(ds.ylast3);
-    float fradius=sqrtf((ds.xlast3-ds.xlast2)*(ds.xlast3-ds.xlast2)+(ds.ylast3-ds.ylast2)*(ds.ylast3-ds.ylast2));
+    int xlast3=ds.xlast3/ds.xgupp; // performs integer division
+    int ylast3=ds.ylast3/ds.ygupp; // performs integer division
+    int xlast2=ds.xlast2/ds.xgupp; // performs integer division
+    int ylast2=ds.ylast2/ds.ygupp; // performs integer division
+    int xlast=ds.xlast/ds.xgupp; // performs integer division
+    int ylast=ds.ylast/ds.ygupp; // performs integer division
+    float fradius=sqrtf((xlast3-xlast2)*(xlast3-xlast2)*ds.xgupp*ds.xgupp+(ylast3-ylast2)*(ylast3-ylast2)*ds.ygupp*ds.ygupp)+0.5;
     xradius = (fradius/ds.xgupp);
     yradius = (fradius/ds.ygupp);
-    float fradius_end=sqrtf((ds.xlast3-ds.xlast)*(ds.xlast3-ds.xlast)+(ds.ylast3-ds.ylast)*(ds.ylast3-ds.ylast));
+    float fradius_end=sqrtf((xlast3-xlast)*(xlast3-xlast)*ds.xgupp*ds.xgupp+(ylast3-ylast)*(ylast3-ylast)*ds.ygupp*ds.ygupp);
     if (fradius_end<1e-9) {
       // the end point is on top of the centre, so there's not much we can do here.
       // Don't do anything in this case, to avoid a division by zero
     } else {
-      start_dx=(int)((ds.xlast2-ds.xlast3)/ds.xgupp);//displacement to start point from centre
-      start_dy=(int)((ds.ylast2-ds.ylast3)/ds.ygupp);//displacement to start point from centre
-      end_dx=(int)((ds.xlast-ds.xlast3)*fradius/fradius_end/ds.xgupp);//projects end point onto circle circumference
+      start_dx=xlast2-xlast3;//displacement to start point from centre
+      start_dy=ylast2-ylast3;//displacement to start point from centre
+      //fprintf(stderr,"start_dx %d=%d-%d\n",start_dx,ds.xlast2,ds.xlast3);
+      end_dx=(int)((xlast-xlast3)*fradius/fradius_end);//projects end point onto circle circumference
       end_dy=ds.ylast-ds.ylast3;
-      end_dy=(int)(((ds.ylast-ds.ylast3)*fradius/fradius_end/ds.ygupp));//projects end point onto circle circumference
+      end_dy=floor(((ylast-ylast3)*fradius/fradius_end));//projects end point onto circle circumference
       
       
       // check that the rounding above does not cause end_dx, end_dy to lie off the rasterised curve.
@@ -3443,18 +3450,36 @@ void emulate_plot(int32 code, int32 x, int32 y) {
       int xnext_rasterised=abs(end_dy)<yradius?(int)(axis_ratio*sqrt(yradius*yradius-(abs(end_dy)+1)*(abs(end_dy)+1)))+1:0; // uses same formula as used by draw_arc function
       int xthis_rasterised=(int)(axis_ratio*sqrt(yradius*yradius-(abs(end_dy))*(abs(end_dy)) )); // uses same formula as used by draw_arc function
       
-      //fprintf(stderr,"Calculated end_dy,end_dx.  L %d,end_dx %d,R %d\n",xnext,end_dx,xthis);
-      if (abs(end_dx)<xnext_rasterised) {
+      if (abs(end_dy)==yradius && end_dy>0 &&0)
+        xnext_rasterised=1;
+      if (abs(end_dx)<xnext_rasterised ) {
         // like xnext to be smaller, so like abs(end_dy) to be larger
-        fprintf(stderr,"Going to have error... too short\n");
+        //fprintf(stderr,"Going to have error... end point too short xnext_rasterised %d xthis_rasterised %d\n",xnext_rasterised,xthis_rasterised);
         end_dy+=end_dy>0?1:-1;
+        //fprintf(stderr,"A xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
       } 
       if (abs(end_dx)>xthis_rasterised) {
         // like xthis to be bigger, so end_dy to be smaller
-        fprintf(stderr,"Going to have error... too long\n");
+        //fprintf(stderr,"Going to have error... end point too long xnext_rasterised %d xthis_rasterised %d\n",xnext_rasterised,xthis_rasterised);
         end_dy-=end_dy>0?1:-1; 
+        //fprintf(stderr,"A xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
       }
-      fprintf(stderr,"xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
+
+      int xnext_srasterised=abs(start_dy)<yradius?(int)(axis_ratio*sqrt(yradius*yradius-(abs(start_dy)+1)*(abs(start_dy)+1)))+1:0; // uses same formula as used by draw_arc function
+      int xthis_srasterised=(int)(axis_ratio*sqrt(yradius*yradius-(abs(start_dy))*(abs(start_dy)))); // uses same formula as used by draw_arc function
+      if (abs(start_dx)<xnext_srasterised ) {
+        // like xnext to be smaller, so like abs(end_dy) to be larger
+        //fprintf(stderr,"Going to have error... start point too short xnext_srasterised %d xthis_srasterised %d\n",xnext_rasterised,xthis_rasterised);
+        start_dy+=start_dy>0?1:-1;
+        //fprintf(stderr,"A xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
+      } 
+      if (abs(start_dx)>xthis_srasterised) {
+        // like xthis to be bigger, so end_dy to be smaller
+        //fprintf(stderr,"Going to have error... start point too long xnext_srasterised %d xthis_srasterised %d\n",xnext_rasterised,xthis_rasterised);
+        start_dy-=start_dy>0?1:-1; 
+        //fprintf(stderr,"A xr %f yr %f sdx %d sdy %d edx %d edy %d\n", xradius, yradius, start_dx,start_dy,end_dx,end_dy);
+      }
+
 
       draw_arc(screenbank[ds.writebank], tx, ty, xradius, yradius, start_dx,start_dy,end_dx,end_dy, colour, action);    
       //plot_pixel(screenbank[ds.writebank], tx, ty, colour, action);
@@ -4575,22 +4600,19 @@ static void filled_ellipse(SDL_Surface *screen,
 static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, float yradius, int32 start_dx, int32 start_dy, int32 end_dx, int32 end_dy, Uint32 colour, Uint32 action) {
   // Use the same logic as the draw-circle routine, i.e. we draw the circle one row at a time, both left and right sides simultaneously.
   // However for the arc, we filter exactly when to plot a point on the left and when to plot a point on the right.
-  //int width=(int)xradius; 
   int height=(int)yradius;
-  //fprintf(stderr, "h %d ey %d ex %d\n",yradius,end_dy,end_dx);
-  //if (start_dy==end_dy)
-  //  fprintf(stderr,"start_dy=end_dy"); 
   if (height == 0)
     draw_h_line(screen,xc+start_dx, xc+end_dx, yc, colour, action);
   else if (end_dy==start_dy && start_dx*end_dx>=0 && ((start_dx>=end_dx && end_dy>0)||(start_dx<=end_dx && end_dy<0))) {
+    // This arc starts and finishes on the same height, and is a minor arc, so it's just a single hline.
+    // Because this is a highly unusual situation which will otherwise break everything, it's best to handle it here right now and exit.
     draw_h_line(screen,xc+start_dx, xc+end_dx, yc-end_dy, colour, action);
-    //fprintf(stderr,"Doing the horiz line");
   } else {
     // We want to find the y-coordinates to plot on the left (we find y1l,y2l,y3l such that we plot all y-coords which satisfy (y1l<=y<=y2l or y>=y3l))
     // Similarly, we want to find the y-coors to plot on the right  (we find y1r,y2r,y3r such that we plot all y-coords which satisfy (y1r<=y<=y2r or y>=y3r))
     // Here, we assume the coordiante system is such that positive y goes upwards (which is WRONG but simpler to think about for now...)
     int32 y1r,y2r,y3r,y1l,y2l,y3l;
-    if (start_dx>=0) {
+    if (start_dx>0 || (start_dx==0 && start_dy<0)) {
       if (end_dx<0 || (end_dx==0 && end_dy<0) || end_dy>start_dy || (end_dy==start_dy && ((start_dy>0 && end_dx<start_dx) || (start_dy<0 && end_dx>start_dx)))) {
         // it definitely starts going upwards on the right, and possibly over the top
         int passes_over_the_top=(end_dx<0 || (end_dx==0 && end_dy<0));
@@ -4618,7 +4640,6 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
     } else {
       // start_dx<0...
       if (end_dx>0 || (end_dx==0 && end_dy>0) || end_dy<start_dy || (end_dy==start_dy && ((start_dy>0 && end_dx<start_dx) || (start_dy<0 && end_dx>start_dx)))) {
-        //fprintf(stderr,"A");
         // it definitely starts off going downwards on the left, and possibly around the bottom
         int passes_around_bottom=(end_dx>0 || (end_dx==0 && end_dy>0));
         y3l=height+1;
@@ -4646,9 +4667,6 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
     }
     if (y1l>y2l || y2l>y3l) fprintf(stderr, "WARN, not in increasing order yL %d %d %d \n", y1l,y2l,y3l);
     if (y1r>y2r || y2r>y3r) fprintf(stderr, "WARN, not in increasing order yR %d %d %d \n", y1r,y2r,y3r);
-    //fprintf(stderr,"h w %d %d \n", height, width);
-    //fprintf(stderr,"yR %d %d %d", y1r,y2r,y3r);
-    //fprintf(stderr,"h w %d %d \n", height, width);
 
     // the following code is copied from the draw_ellipse function, and modified slightly.
     // The main modification is that we should only draw a line on the left if the y coordinate satisfies (y1l<=y<=y2l or y>=y3l).  Similarly for the right.
@@ -4657,8 +4675,6 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
     float h_squared = yradius * yradius;
     // Maintain the left/right coordinated of the previous, current, and next slices
     // to allow lines to be drawn to make sure the pixels are connected
-    //int xl_prev = 0;
-    //int xr_prev = 0;
     int xl_this = 0;
     int xr_this = 0;
     // Start at -1 to allow the pipeline to fill
@@ -4680,20 +4696,19 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
         // So "clipping" is only referring to the start/end of the arc; 
         // "clipping" does not refer to the sides of the graphics window - that is handled separately by the draw_h_line function.
         if (y==height) {
-          xl=0;
+          xl=-1; // the final top and bottom hlines should not meet in the middle (in case we have GCOL3,x EOR colour selected)
           xr=0;
         }
         int x1=xc + xr;
         int x2=xc + xr_this;
         // Note that earlier the filtering to generate y1l,y2l,y3l,y1r,y2r,y3r was assuming positive y is upwards.
         // As this was not true, we have a -y appearing often below....!
+        
         // bottom right quadrant:
         if (-y==end_dy && end_dx>=0) {// bottom right clipping
-          //fprintf(stderr,"B start_dx %d  start_dy %d end_dx %d  end_dy %d\n",start_dx,start_dy,end_dx,end_dy);
           x2=xc + end_dx;
         }
         if (-y==start_dy && start_dx>=0) {// bottom right clipping
-          //fprintf(stderr,"C start_dx %d  start_dy %d end_dx %d  end_dy %d\n",start_dx,start_dy,end_dx,end_dy);
           x1=xc + start_dx;
         }
         if ((-y>=y1r && -y<=y2r)||-y>=y3r) {
@@ -4701,14 +4716,14 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
             draw_h_line(screen, x1, x2, yc + y, colour, action);
           else {
             // really unusual situation due to clipping x1 and x2 have swapped over.  Hence need two draw statements:
-            draw_h_line(screen, xc + xr, x2, yc + y, colour, action);
-            draw_h_line(screen, x1, xc + xr_this, yc + y, colour, action);
+            if (xc+xr<=x2) draw_h_line(screen, xc+xr, x2, yc + y, colour, action);
+            if (x1<=xc+xr_this) draw_h_line(screen, x1, xc + xr_this, yc + y, colour, action);
           }
         }
         //bottom left quadrant:
-        x1=xc + xl_this;
         x2=xc + xl;
-        if (-y==end_dy && end_dx<0 && 1) {// bottom left clipping
+        x1=xc + xl_this;
+        if (-y==end_dy && end_dx<0) {// bottom left clipping
           x2=xc + end_dx;
         }
         if (-y==start_dy && start_dx<0) {// bottom left clipping
@@ -4719,8 +4734,8 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
             draw_h_line(screen, x1, x2, yc + y, colour, action);
           else {
             // really unusual situation due to clipping x1 and x2 have swapped over.  Hence need two draw statements:
-            draw_h_line(screen, xc + xl_this, x2, yc + y, colour, action);
-            draw_h_line(screen, x1, xc + xl, yc + y, colour, action);
+            if (xc+xl_this<=x2) draw_h_line(screen, xc + xl_this, x2, yc + y, colour, action);
+            if (x1<xc+xl) draw_h_line(screen, x1, xc + xl, yc + y, colour, action);
           }
         }
 
@@ -4728,23 +4743,25 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
           // top right quadrant
           x1=xc - xl;
           x2=xc - xl_this;
-          if (y==end_dy && end_dx>=0) // top right clipping
-            x1=xc + end_dx;
-          if (y==start_dy && start_dx>=0) // top right clipping
-            x2=xc + start_dx;
+          if (y==end_dy && end_dx>=0) {// top right clipping of LHS of the hline
+            x1=max(x1,xc + end_dx);
+          }
+          if (y==start_dy && start_dx>=0) {// top right clipping of RHS of the hline
+            x2=min(x2,xc + start_dx);
+          }
           if ((y>=y1r && y<=y2r)||y>=y3r) {
             if (x1<=x2)
               draw_h_line(screen, x1, x2, yc - y, colour, action);
             else {
               // really unusual situation due to clipping x1 and x2 have swapped over.  Hence need two draw statements:
-              draw_h_line(screen, xc - xl, x2, yc - y, colour, action);
-              draw_h_line(screen, x1, xc - xl_this, yc - y, colour, action);
+              if (xc-xl<=x2) draw_h_line(screen, xc - xl, x2, yc - y, colour, action);// This is drawing the unwanted left pixel!!!!  from xc-xl=161 to x2=160
+              if (x1<=xc-xl_this) draw_h_line(screen, x1, xc - xl_this, yc - y, colour, action); // this is drawing the wanted right pixel
             }
           }
 
           // top left quadrant
-          x1=xc - xr_this;
           x2=xc - xr;
+          x1=xc - xr_this;
           if (y==end_dy && end_dx<0) // top left clipping
              x1=xc + end_dx;
           if (y==start_dy && start_dx<=0) // top left clipping
@@ -4754,8 +4771,8 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
               draw_h_line(screen, x1,x2, yc - y, colour, action);
             else {
               // really unusual situation due to clipping x1 and x2 have swapped over.  Hence need two draw statements:
-              draw_h_line(screen, xc - xr_this, x2, yc - y, colour, action);
-              draw_h_line(screen, x1, xc - xr, yc - y, colour, action);
+              if (xc-xr_this<=x2) draw_h_line(screen, xc - xr_this, x2, yc - y, colour, action);
+              if (x1<=xc-xr) draw_h_line(screen, x1, xc - xr, yc - y, colour, action);
             }
           }
         }
@@ -4763,17 +4780,8 @@ static void draw_arc(SDL_Surface *screen, int32 xc, int32 yc, float xradius, flo
       xl_this = xl_next;
       xr_this = xr_next;
     }
-    /*y=height;
-    int clipped=0;
-    if (((-y>=y1l && -y<=y2l)||-y>=y3l) && ((-y>=y1r && -y<=y2r)||-y>=y3r)) {
-      if (-y==start_dy)
-        draw_h_line(screen, xc - start_dx, xc - xr_this, yc - y, colour, action);
-      else
-        draw_h_line(screen, xc - xl_this, xc - xr_this, yc - y, colour, action);
-    }
-    if (!clipped && ((y>=y1l && y<=y2l)||y>=y3l) && ((y>=y1r && y<=y2r)||y>=y3r)) 
-      draw_h_line(screen, xc + xl_this, xc + xr_this, yc + y, colour, action);
-    */
+    
+    
   }
 }
 
